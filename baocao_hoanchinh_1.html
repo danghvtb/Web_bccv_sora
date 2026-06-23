@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Báo cáo công việc</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:12px;font-family:Arial,sans-serif;background:#eef2f7}
+.container{max-width:1400px;margin:auto}
+h1{text-align:center;color:#1f4ea3}
+.layout{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:16px}
+input,textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px}
+textarea{min-height:100px;resize:vertical}
+.project{border:1px solid #ddd;border-radius:8px;padding:12px;margin:12px 0}
+.project-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{border:none;border-radius:6px;padding:10px 14px;cursor:pointer;margin:4px}
+.blue{background:#2563eb;color:#fff}.green{background:#16a34a;color:#fff}.red{background:#dc2626;color:#fff}
+#preview{min-height:350px;font-family:Consolas,monospace}
+@media(max-width:768px){.layout,.project-grid{grid-template-columns:1fr}.btn{width:100%;margin:4px 0}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>TẠO BÁO CÁO CÔNG VIỆC</h1>
+
+<div class="card">
+<label>Ngày báo cáo</label>
+<input type="date" id="reportDate">
+</div>
+
+<div class="layout">
+<div>
+<div class="card">
+<button class="btn blue" onclick="addProject()">+ Thêm dự án</button>
+<div id="projects"></div>
+
+<h3>Vấn đề tồn tại</h3>
+<textarea id="issue"></textarea>
+
+<h3>Hướng giải quyết</h3>
+<textarea id="solution"></textarea>
+
+<h3>Công việc ngày tiếp theo</h3>
+<textarea id="nextWork"></textarea>
+</div>
+</div>
+
+<div>
+<div class="card">
+<button class="btn green" onclick="generateReport()">Tạo báo cáo</button>
+<button class="btn blue" onclick="copyReport()">Copy báo cáo</button>
+
+<h3>Xem trước</h3>
+<textarea id="preview"></textarea>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+const KEY='daily_report_v2';
+
+function saveData(){
+ const data={
+  date:reportDate.value,
+  issue:issue.value,
+  solution:solution.value,
+  next:nextWork.value,
+  projects:[...document.querySelectorAll('.project')].map(p=>({
+   name:p.querySelector('.name').value,
+   content:p.querySelector('.content').value,
+   result:p.querySelector('.result').value
+  }))
+ };
+ localStorage.setItem(KEY,JSON.stringify(data));
+}
+
+function loadData(){
+ const raw=localStorage.getItem(KEY);
+ if(!raw){addProject();return;}
+ const d=JSON.parse(raw);
+ reportDate.value=d.date||new Date().toISOString().split('T')[0];
+ issue.value=d.issue||'';
+ solution.value=d.solution||'';
+ nextWork.value=d.next||'';
+ (d.projects||[]).forEach(addProject);
+ if((d.projects||[]).length===0)addProject();
+}
+
+function addProject(data={}){
+ const div=document.createElement('div');
+ div.className='project';
+ div.innerHTML=`
+ <input class="name" placeholder="Tên dự án" value="${data.name||''}">
+ <div class="project-grid">
+ <div><label>Nội dung công việc</label><textarea class="content">${data.content||''}</textarea></div>
+ <div><label>Kết quả công việc</label><textarea class="result">${data.result||''}</textarea></div>
+ </div>
+ <button class="btn red" onclick="this.parentElement.remove();saveData()">Xóa dự án</button>`;
+ projects.appendChild(div);
+ div.querySelectorAll('input,textarea').forEach(x=>x.addEventListener('input',saveData));
+}
+
+function plusLines(text){
+ return text.split(/\r?\n/).filter(x=>x.trim()).map(x=>'+ '+x.trim()).join('\n');
+}
+
+function formatDate(v){
+ if(!v) return '';
+ const d=new Date(v);
+ return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+}
+
+function generateReport(){
+ let txt=`Báo cáo công việc ${formatDate(reportDate.value)}\n`;
+ txt+='- Tên dự án:\n';
+
+ document.querySelectorAll('.project').forEach((p,i)=>{
+   txt+=`${i+1}. ${p.querySelector('.name').value}\n`;
+   txt+='- Nội dung công việc:\n';
+   txt+=plusLines(p.querySelector('.content').value)+'\n';
+   txt+='- Kết quả công việc:\n';
+   txt+=plusLines(p.querySelector('.result').value)+'\n';
+ });
+
+ txt+='\n- Vấn đề tồn tại:\n'+plusLines(issue.value);
+ txt+='\n\n- Hướng giải quyết:\n'+plusLines(solution.value);
+ txt+='\n\n- Công việc ngày tiếp theo:\n'+plusLines(nextWork.value);
+
+ preview.value=txt;
+ saveData();
+ return txt;
+}
+
+async function copyReport(){
+ const text=generateReport();
+ try{
+   await navigator.clipboard.writeText(text);
+   alert('Đã copy thành công');
+ }catch(e){
+   preview.focus();
+   preview.select();
+   alert('Clipboard bị chặn. Nội dung đã được chọn, hãy nhấn Copy từ menu điện thoại.');
+ }
+}
+
+reportDate.value=new Date().toISOString().split('T')[0];
+document.querySelectorAll('#reportDate,#issue,#solution,#nextWork').forEach(x=>x.addEventListener('input',saveData));
+loadData();
+</script>
+</body>
+</html>
